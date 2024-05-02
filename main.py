@@ -1,4 +1,6 @@
 import telebot.types
+from telebot.async_telebot import AsyncTeleBot
+import asyncio
 
 TOKEN = '6800574446:AAG1B5NSyjiX8Y84WbKACBNW6b6VYQyVgpk'
 
@@ -15,7 +17,7 @@ def printf(func):
     return wrapper
 
 #Add bot
-from telebot.async_telebot import AsyncTeleBot
+
 bot = AsyncTeleBot(TOKEN)
 
  #/* KEYBOARDS */
@@ -59,10 +61,9 @@ button_no_show = telebot.types.InlineKeyboardButton(text="Нет", callback_data
 show_note_keyboard.add(button_no_show, button_yes_show)
 
 
-
 ''' /* MAIN BOT */'''
 
-@bot.message_handler(commands=['help', 'start'] )
+@bot.message_handler(commands=['help', 'start'])
 @printf
 async def send_welcome(msg):
     global users
@@ -72,20 +73,20 @@ async def send_welcome(msg):
 #users[msg.from_user.id] = {'status': 'selecting_action', 'data': {}}
 
 
-@bot.message_handler(func=lambda msg:  users[msg.from_user.id]== {'status':'going_back'} if users[msg.from_user.id] else False)
+@bot.message_handler(func=lambda msg:  users[msg.from_user.id] == {'status':'going_back'} if users[msg.from_user.id] else False)
 async def send_welcome_menu(msg):
     global users
     await bot.send_message(msg.chat.id," ", reply_markup=welcome_keyboard)
     users[msg.from_user.id] = {'status': 'selecting_action'}
 
 
-@bot.message_handler(func=lambda msg: msg.text == 'Особые возможности' and users[msg.from_user.id]== {'status': 'selecting_action'} if users[msg.from_user.id] else False)
+@bot.message_handler(func=lambda msg: msg.text == 'Особые возможности' and users[msg.from_user.id] == {'status': 'selecting_action'} if users[msg.from_user.id] else False)
 @printf
 async def show_special_keybrd(msg):
     await bot.send_message(msg.chat.id,"a", reply_markup=special_keyboard)
 
 
-@bot.message_handler(func=lambda msg: msg.text == 'Добавить заметку' and users[msg.from_user.id]== {'status': 'selecting_action'} if users[msg.from_user.id] else False)
+@bot.message_handler(func=lambda msg: msg.text == 'Добавить заметку' and users[msg.from_user.id] == {'status': 'selecting_action'} if users[msg.from_user.id] else False)
 @printf
 async def add_note(msg):
     global users
@@ -131,6 +132,7 @@ async def show_list_note(msg):
 @printf
 async def add_note(msg):
     global users
+
     users[msg.from_user.id] = {'status': 'making_note'}
     await bot.send_message(msg.chat.id, "Сохранить заметку?", reply_markup=ans_keyboard)# К этому сообщению добавить inline лавиатуру с выбором
 
@@ -142,7 +144,7 @@ async def save_btn(call):
     message = call.message
     chat_id = message.chat.id
     users[call.from_user.id] = {'status': 'saving_note'}
-    await bot.edit_message_reply_markup(chat_id=call.message.chat.id, message_id=call.message.id)
+    #await bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.id)  #(chat_id=call.message.chat.id, message_id=call.message.id)
     await bot.send_message(chat_id, f'Данные сохранены')
     users[call.from_user.id] = {'status': 'selecting_action'}
     print(call)
@@ -172,8 +174,8 @@ async def delete_note(msg):
 @printf
 async def del_btn(call):
     global users
+    #await bot.delete_message(chat_id=call.chat.id, message_id=call.message.id)
     users[call.from_user.id] = {'status': 'removing_note'}
-    await bot.edit_message_reply_markup(chat_id=call.message.chat.id, message_id=call.message.id)
     await bot.send_message(call.message.chat.id, f'Заметка удалена')
     users[call.from_user.id] = {'status': 'selecting_action'}
 
@@ -183,7 +185,7 @@ async def del_btn(call):
 async def del_btn(call):
     global users
     await bot.send_message(call.message.chat.id, "Выберите заметку")
-    users[call.from_user.id] = {'status': 'deleting_note'}
+    users[call.from_user.id] = {'status': 'selecting_note'}
 
 
 
@@ -202,6 +204,7 @@ async def show_list_note(msg):
 @printf
 async def show_btn(call):
     global users
+    #await bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.id)
     await bot.send_message(call.message.chat.id, "Выберите заметку")
     users[call.from_user.id] = {'status': 'showing_note'}
 
@@ -210,14 +213,15 @@ async def show_btn(call):
 @printf
 async def show_note(msg):
     global users
-    await bot.send_message(msg.chat.id, "Ваша заметка ")
+    await bot.send_message(msg.chat.id, "Ваша заметка")
     users[msg.from_user.id] = {'status': 'selecting_action'}
 
 @bot.callback_query_handler(func=lambda call: call.data == 'not_show')
 @printf
 async def not_show_btn(call):
     global users
-    await bot.send_message(msg.chat.id, "Ваша заметка ")
+    #await bot.delete_message(chat_id=call.chat.id, message_id=call.message.id)
+    await bot.send_message(call.chat.id, "ладно ¯_(ツ)_¯ ")
     users[call.from_user.id] = {'status': 'selecting_action'}
 
 
@@ -263,5 +267,5 @@ async def not_show_btn(call):
 #     global users
 #     users[msg.from_user.id]["await_after_button"] = True
 
-import asyncio
+
 asyncio.run(bot.polling())
