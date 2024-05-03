@@ -85,6 +85,13 @@ class DB_connect():
                     cursor.execute("UPDATE states SET state = %s WHERE user_id = %s",(str(state), db_user_id))
                     conn.commit()
                     print("статус установлен")
+
+    def get_state(self, db_id_user = 0):
+        with connect(host=self.db_host, database=self.db_name, user=self.db_user, password=self.db_password) as conn:
+            with conn.cursor(buffered=True) as cursor:
+                if (db_id_user != 0):
+                    cursor.execute("SELECT state FROM states WHERE user_id = %s", (db_id_user, ))
+                    return cursor.fetchall()[0][0]
     def set_notification(self,db_name = None, db_user_id = 0, db_notice_date = datetime.now(), db_is_reg = False): #datetime notice_date
         with connect(host=self.db_host, database=self.db_name, user=self.db_user, password=self.db_password) as conn:
             with conn.cursor(buffered=True) as cursor:
@@ -131,6 +138,7 @@ db_conn = DB_connect()
 #db_conn.add_file(1836518, )
 #db_conn.set_state(12, "beeing tired")
 time = datetime(2024, 5, 2, 12, 45, 0)
+print(db_conn.get_file_id("2024-05-01 19:51:13.310499"))
 #db_conn.set_notification("я есть запись", 12, time, False)
 #db_conn.delete_notification("я есть запись", 12, time)
 #db_conn.delete_note("я есть запись", 123456)
