@@ -60,7 +60,7 @@ class DB_connect():
                     conn.commit()
                     print("файл добавлен")
 
-    @staticmethod
+
     def get_note_text(self, db_name = None, db_user_id  = 0): #хз как вернуть message
         with connect(host=self.db_host, database=self.db_name, user=self.db_user, password=self.db_password) as conn:
             with conn.cursor(buffered=True) as cursor:
@@ -69,12 +69,11 @@ class DB_connect():
                     message = list(cursor.fetchall())[0]
                     return message
 
-    @staticmethod
-    def get_file_id(self, db_name = None, ):#хз как вернуть file_id
+    def get_file_id(self, db_name = None):#хз как вернуть file_id
         with connect(host=self.db_host, database=self.db_name, user=self.db_user, password=self.db_password) as conn:
             with conn.cursor(buffered=True) as cursor:
                 if (db_name != None):
-                    cursor.execute("SELECT file_id FROM files WHERE name = %s", (str(db_name)))
+                    cursor.execute("SELECT file_id FROM files WHERE name = %s", (str(db_name), ))
                     file_id = list(cursor.fetchall())[0]
                     return file_id
 
@@ -85,7 +84,6 @@ class DB_connect():
                     cursor.execute("UPDATE states SET state = %s WHERE user_id = %s",(str(state), db_user_id))
                     conn.commit()
                     print("статус установлен")
-
     def get_state(self, db_id_user = 0):
         with connect(host=self.db_host, database=self.db_name, user=self.db_user, password=self.db_password) as conn:
             with conn.cursor(buffered=True) as cursor:
@@ -120,7 +118,7 @@ class DB_connect():
                     conn.commit()
                     print("заметка удалена")
 
-    @staticmethod
+
     def print_note_info(self, db_name = None, db_user_id = 0):
         with connect(host=self.db_host, database=self.db_name, user=self.db_user, password=self.db_password) as conn:
             with conn.cursor(buffered=True) as cursor:
