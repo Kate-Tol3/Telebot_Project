@@ -1,6 +1,7 @@
 from  mysql.connector import connect
 import json
 from datetime import datetime
+import re
 import time
 class DB_connect():
     def __init__(self):
@@ -25,7 +26,7 @@ class DB_connect():
                     if (db_name==None):
                         note_name = str(db_time)
                     elif (db_name in namelist):
-                        note_name = (db_name + ' ' + str(db_time))
+                        note_name = (db_name + ' ' + db_time.strftime("%d/%m/%Y %H:%M:%S"))
                     else:
                         note_name = db_name
 
@@ -61,20 +62,20 @@ class DB_connect():
                     print("файл добавлен")
 
 
-    def get_note_text(self, db_name = None, db_user_id  = 0): #хз как вернуть message
-        with connect(host=self.db_host, database=self.db_name, user=self.db_user, password=self.db_password) as conn:
-            with conn.cursor(buffered=True) as cursor:
-                if ((db_name != None) and (db_user_id!= 0) ):
-                    cursor.execute("SELECT message FROM notes WHERE user_id = %s AND name = %s ORDER BY date_time LIMIT 1", (db_user_id, str(db_name)))
-                    message = list(cursor.fetchall())[0]
-                    return message
+    # def get_note_text(self, db_name = None, db_user_id  = 0): #хз как вернуть message
+    #     with connect(host=self.db_host, database=self.db_name, user=self.db_user, password=self.db_password) as conn:
+    #         with conn.cursor(buffered=True) as cursor:
+    #             if ((db_name != None) and (db_user_id!= 0) ):
+    #                 cursor.execute("SELECT message FROM notes WHERE user_id = %s AND name = %s ORDER BY date_time LIMIT 1", (db_user_id, str(db_name)))
+    #                 message = cursor.fetchall()[0][0]
+    #                 return message
 
     def get_file_id(self, db_name = None):#хз как вернуть file_id
         with connect(host=self.db_host, database=self.db_name, user=self.db_user, password=self.db_password) as conn:
             with conn.cursor(buffered=True) as cursor:
                 if (db_name != None):
-                    cursor.execute("SELECT file_id FROM files WHERE name = %s", (str(db_name), ))
-                    file_id = list(cursor.fetchall())[0]
+                    cursor.execute("SELECT file_id FROM files WHERE name = %s", (str(db_name),))
+                    file_id = cursor.fetchall()[0][0]
                     return file_id
 
     def set_state(self, db_user_id = 0, state = None):
@@ -96,9 +97,10 @@ class DB_connect():
                 if(db_name!=None and db_notice_date > datetime.now()):
                     cursor.execute("SELECT id FROM notes WHERE user_id = %s AND name = %s", (db_user_id, str(db_name))) # get note_id by name
                     db_id = cursor.fetchall()[0][0] #note_id
+                    db_time_now = datetime.now()
                     time_delta = db_notice_date - datetime.now()
                     db_time_unix = int(time_delta.total_seconds())
-                    cursor.execute("INSERT INTO schedule(note_id, time_to_wait, is_regular, notice_time) VALUES (%s, %s, %s, %s)", (db_id, db_time_unix, db_is_reg, db_notice_date))
+                    cursor.execute("INSERT INTO schedule(note_id, time_to_wait, is_regular, notice_time, time_added) VALUES (%s, %s, %s, %s, %s)", (db_id, db_time_unix, db_is_reg, db_notice_date, db_time_now))
                     conn.commit()
                     print("напоминание установлено")
     def delete_notification(self, db_name = None, db_user_id = 0, db_notice_date = datetime.now()):
@@ -119,34 +121,46 @@ class DB_connect():
                     print("заметка удалена")
 
 
-    def print_note_info(self, db_name = None, db_user_id = 0):
+    def get_note_text(self, db_to_find = None, db_user_id = 0):
         with connect(host=self.db_host, database=self.db_name, user=self.db_user, password=self.db_password) as conn:
             with conn.cursor(buffered=True) as cursor:
-                if(db_name!=None and db_user_id != 0):
-                    cursor.execute("SELECT * FROM notes WHERE name = %s AND user_id = %s", (str(db_name), db_user_id))
-                    info = cursor.fetchall()
-                    print(info)
+                if(db_to_find!=None and db_user_id != 0):
+                    messages = []
+                    #cursor.execute("SELECT * FROM notes WHERE name = %s AND user_id = %s", (str(db_name), db_user_id))
+                    #cursor.execute("SELECT * FROM notes WHERE name REGEXP CONCAT('\\b', REPLACE(db_name, "'", "\\'"), '\\w*', REPLACE(db_name, "'", "\\'"), '\\b') ")
+                    #db_name
+                    cursor.execute("SELECT name, message FROM notes WHERE name LIKE CONCAT('%', %s, '%') AND user_id = %s ORDER BY date_time", (str(db_to_find),db_user_id ))
+                    info = cursor.fetchall();
+                    for i in range (len(info)):
+                        messages.append((info[i][0], info[i][1]))
+                    return messages
                 else:
-                   print("WILL BE ERROR")
+                    print("WILL BE ERROR")
 
 
-db_conn = DB_connect()
+#
+#
+# db_conn = DB_connect()
+#
+# print(db_conn.print_note_info("я есть запись", 12))
 
 #db_conn.add_user(12, "not_kotik", "waf", )
 #db_conn.add_file(1836518, )
 #db_conn.set_state(12, "beeing tired")
-time = datetime(2024, 5, 2, 12, 45, 0)
-print(db_conn.get_file_id("2024-05-01 19:51:13.310499"))
-#db_conn.set_notification("я есть запись", 12, time, False)
-#db_conn.delete_notification("я есть запись", 12, time)
-#db_conn.delete_note("я есть запись", 123456)
-#db_conn.add_note("я есть запись", 12, "do laba")
+# time = datetime(2024, 5, 6, 12, 45, 0)
+# #db_conn.add_note()
+# #db_conn.set_notification("я есть запись", 12, time, False)
+# #db_conn.delete_notification("я есть запись", 12, time)
+# #db_conn.delete_note("я есть запись", 123456)
+# db_conn.set_notification("я есть запись", 12, time, False)
 #db_conn.print_note_info("я есть запись", 123456)
 
 
 
 #db_time = datetime.fromtimestamp(db_time)  # from unix to datetime
 
+
+#lowe_case all notes + для поиска reg expsessions + lj, добать поле для поиска
 
 ''' ADD :
  get state func'''
