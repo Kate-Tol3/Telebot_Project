@@ -1,11 +1,14 @@
 import telebot.types
 from database import DB_connect
+import time
 
-TOKEN = '6800574446:AAG1B5NSyjiX8Y84WbKACBNW6b6VYQyVgpk'
+TOKEN = '6809084128:AAHVeXjueYraL-GwbFrYqgOdmQ89itI9Z_c'
 
 # !/usr/bin/python
 
 users = {}
+messages = {}
+names = {}
 db_conn = DB_connect()
 
 # decorator for printing satus
@@ -42,7 +45,7 @@ button_remind_about_note = telebot.types.KeyboardButton(text="Добавить �
 button_not_remind_about_note = telebot.types.KeyboardButton(text="Отменить напоминание о заметке")
 button_create_todo_list = telebot.types.KeyboardButton(text="Создать список дел")
 button_go_back = telebot.types.KeyboardButton(text="Назад")
-special_keyboard.add(button_go_into_mod, button_add_key_word, button_remind_about_note, button_not_remind_about_note,
+special_keyboard.add(button_go_into_mod, button_remind_about_note, button_not_remind_about_note,
                      button_create_todo_list, button_go_back)
 
 # naming_note_keyboard
@@ -80,11 +83,26 @@ reminder_note_keyboard.add(button_no_show, button_yes_show)
 
 ''' /* MAIN BOT */'''
 
+async def send_notification():
+    list = db_conn.check_notification()
+    for user_id, message in list:
+        try:
+            await bot.send_message(user_id, " НАПОМИНАЮ!!!\n" + message)
+        except Exception as e:
+            print(e)
+        # if (db_conn.is_regular(user_id)):
+        #  #   db_conn.update_notification(user_id)
+        # else:
+        #   #  db_conn.delete_notification(user_id)
+
+
 
 @bot.message_handler(commands=['help', 'start'])
 @printf
 async def send_welcome(msg):
     global users
+    print(msg)
+    db_conn.add_user(msg.from_user.id, msg.from_user.username, msg.from_user.first_name, msg.from_user.last_name)
     await bot.send_message(msg.chat.id, "Выберите действие", reply_markup=welcome_keyboard)
     users[msg.from_user.id] = {'status': 'selecting_action'}
 
@@ -140,6 +158,9 @@ async def show_list_note(msg):
     users[msg.from_user.id] = {'status': 'showing_list_notes'}
     # user_users.show_list_note_note()
     await bot.send_message(msg.chat.id, "Список заметок:")
+    list = db_conn.get_list(msg.from_user.id)
+    for el in list:
+        await bot.send_message(msg.chat.id, el)
     await bot.send_message(msg.chat.id, "Хотите посмотреть содержание какой-либо заметки? ",
                            reply_markup=show_note_keyboard)
 
@@ -188,6 +209,7 @@ async def add_note(msg):
     await bot.send_message(msg.chat.id, "Название заметки сохранено")
     # await bot.send_message(chat_id, f'Название заметки сохранено')
     users[msg.from_user.id] = {'status': 'adding_note'}
+    names[msg.from_user.id] = msg.text
     await bot.send_message(msg.chat.id, "Введите заметку")
     # await bot.send_message(msg.chat.id, "Сохранить заметку?", reply_markup=ans_keyboard)
 
@@ -198,6 +220,7 @@ async def save_btn(call):
     global users
     message = call.message
     chat_id = message.chat.id
+    names[call.from_user.id] = " "
     users[call.from_user.id] = {'status': 'adding_note'}
     await bot.send_message(message.chat.id, "Введите заметку")
 
@@ -207,6 +230,7 @@ async def save_btn(call):
 @printf
 async def add_note(msg):
     global users
+    messages[msg.from_user.id] = msg.text
     await bot.send_message(msg.chat.id, "Сохранить заметку?", reply_markup=ans_keyboard)
 
 
@@ -216,9 +240,10 @@ async def save_btn(call):
     global users
     message = call.message
     chat_id = message.chat.id
+    db_conn.add_note(names[call.from_user.id], call.from_user.id, messages[call.from_user.id])
     # users[call.from_user.id] = {'status': 'saving_note'}
     # await bot.edit_message_reply_markup(chat_id=call.message.chat.id, message_id=call.message.id)
-    await bot.send_message(message.chat.id, "Заметка сохранена")
+    await bot.send_message(chat_id, "Заметка сохранена")
     await bot.send_message(chat_id, 'Хотите добавить напоминание для этой заметки?', reply_markup=reminder_note_keyboard)
     # users[call.from_user.id] = {'status': 'selecting_action'}
     # print(call)
@@ -272,6 +297,7 @@ async def change_btn(call):
 @printf
 async def delete_note(msg):
     global users
+    names[msg.from_user.id] = msg.text
     users[msg.from_user.id] = {'status': 'confirming_delete'}
     await bot.send_message(msg.chat.id, "Точно хотите удалить заметку?", reply_markup=confirm_keyboard)
 
@@ -281,6 +307,7 @@ async def delete_note(msg):
 async def del_btn(call):
     global users
     users[call.from_user.id] = {'status': 'removing_note'}
+    db_conn.delete_note(names[call.from_user.id], call.from_user.id)
     await bot.edit_message_reply_markup(chat_id=call.message.chat.id, message_id=call.message.id)
     await bot.send_message(call.message.chat.id, f'Заметка удалена. Выберите следующее действие.')
     users[call.from_user.id] = {'status': 'selecting_action'}
@@ -304,7 +331,7 @@ async def show_list_note(msg):
     global users
     users[msg.from_user.id] = {'status': 'choosing_note'}
     # user_users.show_list_note_note()
-    # await bot.send_message(msg.chat.id, "Список заметок")
+
     # users[msg.from_user.id] = {'status': 'selecting_action'}
 
 
@@ -326,7 +353,11 @@ async def show_btn(call):
 @printf
 async def show_note(msg):
     global users
-    await bot.send_message(msg.chat.id, "Ваша заметка: ")
+    names[msg.from_user.id] = msg.text
+    await bot.send_message(msg.chat.id, "Самые подходящие заметки: ")
+    text = db_conn.get_note_text(msg.text, msg.from_user.id)
+    for el in text:
+        await bot.send_message(msg.chat.id, el[0] + "\n" + el[1])
     await bot.send_message(msg.chat.id, "Выберите следующее действие")
     users[msg.from_user.id] = {'status': 'selecting_action'}
 
@@ -408,7 +439,7 @@ async def save_note(msg):
 async def add_note(msg):
     global users
     users[msg.from_user.id] = {'status': 'creating_list'}
-    await bot.send_message(msg.chat.id, "Введите дату")
+    await bot.send_message(msg.chat.id, "Выберите день : (сегодня/завтра)")
 
 
 @bot.message_handler(
@@ -417,6 +448,7 @@ async def add_note(msg):
 async def show_list_note(msg):
     global users
     await bot.send_message(msg.chat.id, "Список дел:")
+
     await bot.send_message(msg.chat.id, "Выберите следующее действие")
     users[msg.from_user.id] = {'status': 'selecting_action'}
 
@@ -466,6 +498,7 @@ async def add_note(msg):
 @printf
 async def show_list_note(msg):
     global users
+    names[msg.from_user.id] = msg.text
     users[msg.from_user.id] = {'status': 'setting_time'}
     await bot.send_message(msg.chat.id, "Время напоминания:")
 
@@ -475,6 +508,7 @@ async def show_list_note(msg):
 @printf
 async def show_list_note(msg):
     global users
+    time = msg.text
     await bot.send_message(msg.chat.id, "Время напоминания установлено. Выберите следующее действие")
     users[msg.from_user.id] = {'status': 'selecting_action'}
 
@@ -490,5 +524,36 @@ async def send_welcome_after(msg):
 
 
 import asyncio
+from update import UpdateManager
 
-asyncio.run(bot.polling())
+async def UpdateProccesses():
+    update = UpdateManager()
+    await update.addSignalCronListener("* * * * *", "SEND_NOTIFICATION", send_notification)
+    await update.startSignalListener()
+
+async def start():
+    # Coroutine's functions list
+    subSystemsTasks: list = []
+    loop: asyncio.AbstractEventLoop
+
+    # Infinity check/update something from system/modules/updater
+
+   # subSystemsTasks.append()
+    task1 = UpdateProccesses()
+    # Telegram Infinity Polling
+
+    task2 = bot.infinity_polling()
+    #asyncio.run(bot.polling())
+    await asyncio.gather(task1, task2)
+    #subSystemsTasks.append(telegram)
+
+    # Start infinity await
+    #waiter = asyncio.wait(subSystemsTasks)
+
+  #  await waiter
+    #return waiter
+
+asyncio.run(start())
+
+
+
