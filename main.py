@@ -84,6 +84,12 @@ button_yes_show = telebot.types.InlineKeyboardButton(text="Да", callback_data=
 button_no_show = telebot.types.InlineKeyboardButton(text="Нет", callback_data='no_reminder')
 reminder_note_keyboard.add(button_no_show, button_yes_show)
 
+# regular_note_keyboard
+regular_note_keyboard = telebot.types.InlineKeyboardMarkup()
+button_yes_regular = telebot.types.InlineKeyboardButton(text="Да", callback_data='regular')
+button_no_regular = telebot.types.InlineKeyboardButton(text="Нет", callback_data='no_regular')
+reminder_note_keyboard.add(button_no_regular, button_yes_regular)
+
 ''' /* MAIN BOT */'''
 
 async def send_notification():
@@ -269,18 +275,36 @@ async def change_btn(call):
     global users
     message = call.message
     chat_id = message.chat.id
-    await bot.send_message(chat_id, 'Время напоминания:')
+    await bot.send_message(chat_id, 'Ваше напоминание регулярное?',
+                           reply_markup=regular_note_keyboard)
+
+
+@bot.callback_query_handler(func=lambda call: call.data == 'regular')
+@printf
+async def change_btn(call):
+    global users
+    message = call.message
+    chat_id = message.chat.id
+    await bot.send_message(chat_id, "Введите время напоминания в формате чч:мм")
     users[call.from_user.id] = {'status': 'set_time'}
 
 
-@bot.message_handler(
-    func=lambda msg: users[msg.from_user.id] == {'status': 'set_time'} if users[msg.from_user.id] else False)
+@bot.callback_query_handler(func=lambda call: call.data == 'no_regular')
 @printf
-async def show_list_note(msg):
+async def change_btn(call):
     global users
-    await bot.send_message(msg.chat.id, f'Напоминание о заметке добавлено. Выберите следующее действие.')
-    users[msg.from_user.id] = {'status': 'selecting_action'}
+    message = call.message
+    chat_id = message.chat.id
+    await bot.send_message(chat_id, "Введите время напоминания в формате дд.мм.гггг чч:мм")
+    users[call.from_user.id] = {'status': 'setting_time'}
 
+#@bot.message_handler(
+#    func=lambda msg: users[msg.from_user.id] == {'status': 'set_time'} if users[msg.from_user.id] else False)
+#@printf
+#async def show_list_note(msg):
+#    global users
+#    await bot.send_message(msg.chat.id, f'Напоминание о заметке добавлено. Выберите следующее действие.')
+#    users[msg.from_user.id] = {'status': 'selecting_action'}
 
 @bot.callback_query_handler(func=lambda call: call.data == 'no_reminder')
 @printf
@@ -513,9 +537,8 @@ async def add_note(msg):
 async def show_list_note(msg):
     global users
     names[msg.from_user.id] = msg.text
-    users[msg.from_user.id] = {'status': 'setting_time'}
-    await bot.send_message(msg.chat.id, "Время напоминания:")
-
+    await bot.send_message(msg.chat.id, 'Ваше напоминание регулярное?',
+                           reply_markup=regular_note_keyboard)
 
 @bot.message_handler(
     func=lambda msg: users[msg.from_user.id] == {'status': 'setting_time'} if users[msg.from_user.id] else False)
@@ -571,6 +594,8 @@ async def start():
     #return waiter
 
 asyncio.run(start())
+
+
 
 
 
