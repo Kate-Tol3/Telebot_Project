@@ -124,17 +124,12 @@ class DB_connect():
                     conn.commit()
                     print("заметка удалена")
 
-
     def get_note_text(self, db_to_find = None, db_user_id = 0):
         with connect(host=self.db_host, database=self.db_name, user=self.db_user, password=self.db_password) as conn:
             with conn.cursor(buffered=True) as cursor:
                 if(db_to_find!=None and db_user_id != 0):
                     messages = []
                     db_to_find = db_to_find.replace(',', '').replace('.', '')
-                    #cursor.execute("SELECT * FROM notes WHERE name = %s AND user_id = %s", (str(db_name), db_user_id))
-                    #cursor.execute("SELECT * FROM notes WHERE name REGEXP CONCAT('\\b', REPLACE(db_name, "'", "\\'"), '\\w*', REPLACE(db_name, "'", "\\'"), '\\b') ")
-                    #db_name
-                    #cursor.execute("SELECT name, message FROM notes WHERE CONCAT(' ',name, ' ') REGEXP CONCAT(' ', %s, ' ') AND user_id = %s ORDER BY date_time",(str(db_to_find), db_user_id))
                     words = re.sub(r"[,\.-]", "", db_to_find).split(" ")
 
                     query_string = "(" + "|".join(words) + ")"
@@ -182,11 +177,25 @@ class DB_connect():
         with connect(host=self.db_host, database=self.db_name, user=self.db_user, password=self.db_password) as conn:
             with conn.cursor(buffered=True) as cursor:
                 db_time = datetime.now()
-                cursor.execute("SELECT notes.user_id, notes.message FROM schedule LEFT JOIN notes ON schedule.note_id = notes.id WHERE DATE(schedule.notice_time) < NOW()")
+                cursor.execute("SELECT notes.user_id, notes.message, schedule. is_regular, notes.name, schedule.notice_time FROM schedule LEFT JOIN notes ON schedule.note_id = notes.id WHERE DATE(schedule.notice_time) < NOW()")
                 passed = []
                 info = cursor.fetchall()
+                regularity = []
                 for i in range(len(info)):
                     passed.append((info[i][0], info[i][1]))
+                    regularity.append((info[i][2], info[i][3], info[i][4]))
+                    print(passed)
+                for i in range (len(info)):
+                    if (regularity[i][0] == 0):
+                        self.delete_notification(regularity[i][1], passed[i][0], regularity[i][2])
+                    else:
+                        cursor.execute("SELECT id FROM notes WHERE user_id = %s AND name = %s",(passed[i][0], str(regularity[i][1])))  # get note_id by name
+                        db_id = cursor.fetchall()[0][0]  # note_id
+                        regularity[i][2] += timedelta(days=1)
+                        delta = regularity[i][2] - datetime.now()
+                        db_time_unix = int(delta.total_seconds())
+                        cursor.execute("UPDATE schedule SET time_to_wait = %s, notice_time = %s WHERE note_id = %s", (db_time_unix, regularity[i][2], db_id))
+
                # print(info)
                # print(passed)
                 return passed
@@ -197,6 +206,7 @@ class DB_connect():
                     cursor.execute("SELECT schedule.is_regular FROM (schedule LEFT JOIN notes ON schedule.note_id = notes.id) WHERE notes.user_id = %s", (db_user_id, ))
                     reg = cursor.fetchall()[0]
                     return reg
+
     # def update_notification(self, db_user_id = 0):
     #     with connect(host=self.db_host, database=self.db_name, user=self.db_user, password=self.db_password) as conn:
     #         with conn.cursor(buffered=True) as cursor:
@@ -226,9 +236,7 @@ class DB_connect():
 # #
 time = datetime(2024, 5, 25, 23, 36, 0)
 db_conn = DB_connect()
-#
-
-print(db_conn.get_list(12))
+db_conn.set_notification("запись", 12, time)
 # db_conn.check_notification()
 #print(db_conn.get_note_text("запись", 12))
 #print(db_conn.get_schedule_for_today(12))

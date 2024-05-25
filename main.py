@@ -1,5 +1,7 @@
 import telebot.types
 from database import DB_connect
+import re
+import datetime
 import time
 
 TOKEN = '6809084128:AAHVeXjueYraL-GwbFrYqgOdmQ89itI9Z_c'
@@ -9,6 +11,7 @@ TOKEN = '6809084128:AAHVeXjueYraL-GwbFrYqgOdmQ89itI9Z_c'
 users = {}
 messages = {}
 names = {}
+times = {}
 db_conn = DB_connect()
 
 # decorator for printing satus
@@ -45,7 +48,7 @@ button_remind_about_note = telebot.types.KeyboardButton(text="Добавить �
 button_not_remind_about_note = telebot.types.KeyboardButton(text="Отменить напоминание о заметке")
 button_create_todo_list = telebot.types.KeyboardButton(text="Создать список дел")
 button_go_back = telebot.types.KeyboardButton(text="Назад")
-special_keyboard.add(button_go_into_mod, button_remind_about_note, button_not_remind_about_note,
+special_keyboard.add( button_remind_about_note, button_not_remind_about_note,
                      button_create_todo_list, button_go_back)
 
 # naming_note_keyboard
@@ -95,7 +98,18 @@ async def send_notification():
         # else:
         #   #  db_conn.delete_notification(user_id)
 
+if(re.find(r"[0-3][0-9]\.[0-1][0-9]\.[0-9]{4}\S*[0-2][0-9]:[0-5][0-9]:[0-5][0-9]", msg.text):
 
+
+
+def convert(date_time):
+    format = '%b %d %Y %I:%M:%p'
+    datetime_str = datetime.datetime.strptime(date_time, format)
+
+    return datetime_str
+
+if(re.find(r"[0-3][0-9]\.[0-1][0-9]\.[0-9]{4}\S*[0-2][0-9]:[0-5][0-9]:[0-5][0-9]", msg.text):
+    pass
 
 @bot.message_handler(commands=['help', 'start'])
 @printf
@@ -508,7 +522,10 @@ async def show_list_note(msg):
 @printf
 async def show_list_note(msg):
     global users
-    time = msg.text
+    if (re.find(r"[0-3][0-9]\.[0-1][0-9]\.[0-9]{4}\S*[0-2][0-9]:[0-5][0-9]:[0-5][0-9", msg.text)):
+        date_time = convert(msg.text)
+        db_conn.set_notification(names[msg.from_user.id],msg.from_user.id, date_time)
+
     await bot.send_message(msg.chat.id, "Время напоминания установлено. Выберите следующее действие")
     users[msg.from_user.id] = {'status': 'selecting_action'}
 
