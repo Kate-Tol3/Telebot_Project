@@ -110,7 +110,13 @@ class DB_connect():
     def delete_notification(self, db_name = None, db_user_id = 0, db_notice_date = datetime.now()):
         with connect(host=self.db_host, database=self.db_name, user=self.db_user, password=self.db_password) as conn:
             with conn.cursor(buffered=True) as cursor:
-                if(db_name!=None and db_user_id != 0):
+                if(db_notice_date == datetime.now()):
+                    cursor.execute("SELECT id from notes WHERE user_id = %s AND name = %s", (db_user_id, str(db_name)))
+                    db_id = cursor.fetchall()
+                    for i in range (len(db_id)-1):
+                        cursor.execute("DELETE * FROM schedule WHERE note_id = %s",(db_id, ))
+                        conn.commit()
+                elif(db_name!=None and db_user_id != 0):
                     cursor.execute("SELECT id from notes WHERE user_id = %s AND name = %s", (db_user_id, str(db_name)))
                     db_id = cursor.fetchall()[0][0]
                     cursor.execute("DELETE FROM schedule WHERE note_id = %s AND notice_time = %s", (db_id, db_notice_date))
@@ -152,7 +158,7 @@ class DB_connect():
                     cursor.execute("SELECT schedule.notice_time, notes.message FROM (schedule LEFT JOIN notes ON schedule.note_id = notes.id) WHERE DATE(schedule.notice_time) = %s AND notes.user_id = %s ORDER BY schedule.notice_time",(db_date_today, db_user_id))
                     info = cursor.fetchall()
                     print(info)
-                    for i in range (len(info)):
+                    for i in range (len(info) - 1):
                         schedule[info[i][0].strftime("%H:%M:%S")] = info[i][1]
                     return schedule
                 else:
@@ -167,7 +173,7 @@ class DB_connect():
                     cursor.execute("SELECT schedule.notice_time, notes.message FROM (schedule LEFT JOIN notes ON schedule.note_id = notes.id) WHERE DATE(schedule.notice_time) = %s AND notes.user_id = %s ORDER BY schedule.notice_time",(db_date_tomorrow, db_user_id))
                     info = cursor.fetchall()
                     print(info)
-                    for i in range (len(info)):
+                    for i in range (len(info) - 1):
                         schedule[info[i][0].strftime("%H:%M:%S")] = info[i][1]
                     return schedule
                 else:
@@ -184,8 +190,7 @@ class DB_connect():
                 for i in range(len(info)):
                     passed.append((info[i][0], info[i][1]))
                     regularity.append((info[i][2], info[i][3], info[i][4]))
-                    print(passed)
-                for i in range (len(info)):
+                for i in range (len(info) - 1):
                     if (regularity[i][0] == 0):
                         self.delete_notification(regularity[i][1], passed[i][0], regularity[i][2])
                     else:
@@ -195,9 +200,9 @@ class DB_connect():
                         delta = regularity[i][2] - datetime.now()
                         db_time_unix = int(delta.total_seconds())
                         cursor.execute("UPDATE schedule SET time_to_wait = %s, notice_time = %s WHERE note_id = %s", (db_time_unix, regularity[i][2], db_id))
+                        conn.commit()
+                        print("Новое напоминание установлено")
 
-               # print(info)
-               # print(passed)
                 return passed
     def is_regular(self, db_user_id = 0):
         with connect(host=self.db_host, database=self.db_name, user=self.db_user, password=self.db_password) as conn:
@@ -207,20 +212,6 @@ class DB_connect():
                     reg = cursor.fetchall()[0]
                     return reg
 
-    # def update_notification(self, db_user_id = 0):
-    #     with connect(host=self.db_host, database=self.db_name, user=self.db_user, password=self.db_password) as conn:
-    #         with conn.cursor(buffered=True) as cursor:
-    #             if (db_user_id != 0):
-    #                 cursor.execute("SELECT id FROM notes WHERE user_id = %s AND name = %s",(db_user_id, str(db_name)))  # get note_id by name
-    #                 db_id = cursor.fetchall()[0][0]  # note_id
-    #                 cursor.execute("SELECT notice_time FROM schedule WHERE note_id = %s", (db_id, ))
-    #                 db_notice_date = cursor.fetchall()[0][0] + timedelta(days=1)
-    #                 time_delta = db_notice_date - datetime.now()
-    #                 db_time_unix = int(time_delta.total_seconds())
-    #                 cursor.execute("UPDATE schedule SET time_to_wait = %s, notice_time = %s WHERE note_id = %s, " (db_time_unix, db_notice_date, db_id))
-    #                 conn.commit()
-    #                 print("Новое напоминание установлено")
-
     def get_list(self, db_user_id = 0):
         with connect(host=self.db_host, database=self.db_name, user=self.db_user,password=self.db_password) as conn:
             with conn.cursor(buffered=True) as cursor:
@@ -228,39 +219,13 @@ class DB_connect():
                     cursor.execute("SELECT name FROM notes WHERE user_id = %s", (db_user_id,))
                     temp = cursor.fetchall()
                     list1 = []
-                    for i in range(len(temp)):
+                    for i in range(len(temp) - 1):
                         list1.append(temp[i][0])
                     return list1
 
 
 # #
-time = datetime(2024, 5, 25, 23, 36, 0)
-db_conn = DB_connect()
-db_conn.set_notification("запись", 12, time)
-# db_conn.check_notification()
-#print(db_conn.get_note_text("запись", 12))
-#print(db_conn.get_schedule_for_today(12))
-#db_conn.add_user(12, "not_kotik", "waf", )
-#db_conn.add_file(1836518, )
-#db_conn.set_state(12, "beeing tired")
-# time = datetime(2024, 5, 6, 12, 45, 0)
-# #db_conn.add_note()
-# #db_conn.set_notification("я есть запись", 12, time, False)
-# #db_conn.delete_notification("я есть запись", 12, time)
-# #db_conn.delete_note("я есть запись", 123456)
-# db_conn.set_notification("я есть запись", 12, time, False)
-#db_conn.print_note_info("я есть запись", 123456)
-
-
-
-#db_time = datetime.fromtimestamp(db_time)  # from unix to datetime
-
-
-#lowe_case all notes + для поиска reg expsessions + lj, добать поле для поиска
-
-''' ADD :
- get state func'''
-
-
+# time = datetime(2024, 5, 25, 23, 36, 0)
+# db_conn = DB_connect()
 
 
