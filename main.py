@@ -84,6 +84,12 @@ button_yes_show = telebot.types.InlineKeyboardButton(text="Да", callback_data=
 button_no_show = telebot.types.InlineKeyboardButton(text="Нет", callback_data='no_reminder')
 reminder_note_keyboard.add(button_no_show, button_yes_show)
 
+# regular_note_keyboard
+regular_note_keyboard = telebot.types.InlineKeyboardMarkup()
+button_yes_regular = telebot.types.InlineKeyboardButton(text="Да", callback_data='regular')
+button_no_regular = telebot.types.InlineKeyboardButton(text="Нет", callback_data='no_regular')
+reminder_note_keyboard.add(button_no_regular, button_yes_regular)
+
 ''' /* MAIN BOT */'''
 
 async def send_notification():
@@ -258,18 +264,28 @@ async def change_btn(call):
     global users
     message = call.message
     chat_id = message.chat.id
-    await bot.send_message(chat_id, 'Время напоминания:')
-    users[call.from_user.id] = {'status': 'set_time'}
+    await bot.send_message(chat_id, 'Ваше напоминание регулярное?',
+                           reply_markup=regular_note_keyboard)
 
 
-@bot.message_handler(
-    func=lambda msg: users[msg.from_user.id] == {'status': 'set_time'} if users[msg.from_user.id] else False)
+@bot.callback_query_handler(func=lambda call: call.data == 'regular')
 @printf
-async def show_list_note(msg):
+async def change_btn(call):
     global users
-    if (re.match(r"[0-3][0-9]\.[0-1][0-9]\.[0-9]{4}\S*[0-2][0-9]:[0-5][0-9]:[0-5][0-9]", msg.text)):
-        date_time = convert(msg.text)
-        db_conn.set_notification(names[msg.from_user.id],msg.from_user.id, date_time)
+    message = call.message
+    chat_id = message.chat.id
+    await bot.send_message(chat_id, "Введите время напоминания в формате дд.мм.гггг чч:мм")
+    users[call.from_user.id] = {'status': 'setting_time'}
+
+
+@bot.callback_query_handler(func=lambda call: call.data == 'no_regular')
+@printf
+async def change_btn(call):
+    global users
+    message = call.message
+    chat_id = message.chat.id
+
+
     await bot.send_message(msg.chat.id, f'Напоминание о заметке добавлено. Выберите следующее действие.')
     users[msg.from_user.id] = {'status': 'selecting_action'}
 
@@ -397,6 +413,45 @@ async def save_note(msg):
     users[msg.from_user.id] = 'selecting_action'
 
 
+# bot.message_handler(func=lambda msg: users[msg.from_user.id] == 'add_name' if users[msg.from_user.id] else False)
+# async def adding_name(msg):
+#    global users
+#    if msg.text == "yes":
+#        await bot.send_message(msg.chat.id, "Заметка сохранена")
+#    else:
+#       await bot.send_message(msg.chat.id, "Заметка не сохранена")
+#    users[msg.from_user.id] = 'selecting_action'
+
+
+# @bot.message_handler(commands=['start'])
+# def welcome(msg):
+#     chat_id = msg.chat.id
+#     button_support = telebot.types.KeyboardButton(text="Написать в поддержку")
+#     keyboard.add(button_support)
+#     await bot.send_message(chat_id,
+#                      'Добро пожаловать в бота сбора обратной связи',
+#                      reply_markup=keyboard)
+
+# @bot.message_handler(func=lambda msg: True)
+# async def echo_message(msg):
+#     await bot.reply_to(msg, msg.text)
+# # Handle all other messages with content_type 'text' (content_types defaults to ['text'])
+
+
+# users= { }
+#
+# @bot.message_handlder(func = lambda x: users[user_id]["await_after_button"] if users[user_id] else False)
+# def do_something_after_button(msg):
+#     global users
+#     users[msg.from_user.id]["await_after_button"] = False
+#     print("хаха, оно работает")
+#
+#
+# @bot.message_handler(regex=r"Моя кнопка")
+# def on_button(msg):
+#     global users
+#     users[msg.from_user.id]["await_after_button"] = True
+
 # special
 
 @bot.message_handler(
@@ -409,23 +464,12 @@ async def add_note(msg):
     await bot.send_message(msg.chat.id, "Выберите день : (сегодня/завтра)")
 
 
-async def print_todo_list(todo_dict):
-    for time, task in todo_dict.items():
-        print(f"{time.strftime('%H:%M')} {task}")
-
 @bot.message_handler(
     func=lambda msg: users[msg.from_user.id] == {'status': 'creating_list'} if users[msg.from_user.id] else False)
 @printf
 async def show_list_note(msg):
     global users
     await bot.send_message(msg.chat.id, "Список дел:")
-    if (msg.text == "сегодня"):
-        todo_dict = db_conn.get_schedule_for_today(msg.from_user.id)
-        print_todo_list(todo_dict)
-
-    if (msg.text == "завтра"):
-        todo_dict = db_conn.get_schedule_for_tomorrow(msg.from_user.id)
-        print_todo_list(todo_dict)
 
     await bot.send_message(msg.chat.id, "Выберите следующее действие")
     users[msg.from_user.id] = {'status': 'selecting_action'}
@@ -443,7 +487,6 @@ async def add_note(msg):
     #else:
     #    await bot.send_message(msg.chat.id, "Такой заметки нет. Выберите следующее действие")
     #    users[msg.from_user.id] = {'status': 'selecting_action'}
-    names[msg.from_user.id] = msg.text
     users[msg.from_user.id] = {'status': 'deleting_reminder'}  # СТАРАЯ ВЕРСИЯ
 
 
@@ -452,7 +495,6 @@ async def add_note(msg):
 @printf
 async def show_list_note(msg):
     global users
-    db_conn.delete_notification(names[msg.from_user.id], msg.from_user.id)
     await bot.send_message(msg.chat.id, "Напоминание о заметке удалено. Выберите следующее действие")
     users[msg.from_user.id] = {'status': 'selecting_action'}
 
@@ -488,10 +530,9 @@ async def show_list_note(msg):
 @printf
 async def show_list_note(msg):
     global users
-    if (re.match("[0-3][0-9]\.[0-1][0-9]\.[0-9]{4}\S*[0-2][0-9]:[0-5][0-9]:[0-5][0-9]", msg.text)):
+    if (re.find(r"[0-3][0-9]\.[0-1][0-9]\.[0-9]{4}\S*[0-2][0-9]:[0-5][0-9]:[0-5][0-9", msg.text)):
         date_time = convert(msg.text)
-        print("aaaaaaaaaaa")
-        db_conn.set_notification(names[msg.from_user.id], msg.from_user.id, date_time)
+        db_conn.set_notification(names[msg.from_user.id],msg.from_user.id, date_time)
 
     await bot.send_message(msg.chat.id, "Время напоминания установлено. Выберите следующее действие")
     users[msg.from_user.id] = {'status': 'selecting_action'}
@@ -519,13 +560,23 @@ async def start():
     # Coroutine's functions list
     subSystemsTasks: list = []
     loop: asyncio.AbstractEventLoop
+
     # Infinity check/update something from system/modules/updater
-    # subSystemsTasks.append()
+
+   # subSystemsTasks.append()
     task1 = UpdateProccesses()
     # Telegram Infinity Polling
-    task2 = bot.infinity_polling()
-    await asyncio.gather(task1, task2)
 
+    task2 = bot.infinity_polling()
+    #asyncio.run(bot.polling())
+    await asyncio.gather(task1, task2)
+    #subSystemsTasks.append(telegram)
+
+    # Start infinity await
+    #waiter = asyncio.wait(subSystemsTasks)
+
+  #  await waiter
+    #return waiter
 
 asyncio.run(start())
 
